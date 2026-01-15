@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { prisma } from './lib/prisma.js';
 
 const app = express();
@@ -34,6 +35,38 @@ app.post('/users', async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Erro ao criar usuário.' });
+  }
+});
+
+// Rota de Login
+app.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    // 1. Busca o usuário
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return res.status(401).json({ error: 'E-mail ou senha inválidos.' });
+    }
+
+    // 2. Verifica a senha (compara o texto puro com o hash do banco)
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'E-mail ou senha inválidos.' });
+    }
+
+    // 3. Gera o Token (vale por 1 dia)
+    const token = jwt.sign(
+      { userId: user.id }, 
+      process.env.JWT_SECRET as string, 
+      { expiresIn: '1d' }
+    );
+
+    const { password: _, ...userWithoutPassword } = user;
+    return res.json({ user: userWithoutPassword, token });
+
+  } catch (error) {
+    return res.status(500).json({ error: 'Erro interno no servidor.' });
   }
 });
 
