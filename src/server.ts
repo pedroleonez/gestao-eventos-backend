@@ -219,6 +219,58 @@ app.delete('/events/:eventId/register', authMiddleware, async (req, res) => {
   }
 });
 
+// Rota para listar inscritos de um evento (protegida)
+app.get('/events/:eventId/attendees', authMiddleware, async (req, res) => {
+  const { eventId } = req.params as { eventId: string };
+
+  try {
+    // 1. Busca o evento para verificar quem é o dono
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: { organizerId: true }
+    });
+
+    if (!event) {
+      return res.status(404).json({ error: 'Evento não encontrado.' });
+    }
+
+    // 2. Verificação de Segurança (Autorização)
+    if (event.organizerId !== req.userId) {
+      return res.status(403).json({ 
+        error: 'Acesso negado. Você não é o organizador deste evento.' 
+      });
+    }
+
+    // 3. Busca a lista de inscrições trazendo os dados dos usuários
+    const registrations = await prisma.registration.findMany({
+      where: { eventId: eventId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            createdAt: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    // 4. Limpar o objeto para retornar apenas a lista de pessoas
+    const attendees = registrations.map(reg => reg.user);
+
+    return res.json({
+      total: attendees.length,
+      attendees
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Erro ao buscar lista de inscritos.' });
+  }
+});
+
 const PORT = Number(process.env.PORT) || 3333;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 API rodando em http://localhost:${PORT}`);
