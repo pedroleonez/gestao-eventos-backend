@@ -192,6 +192,33 @@ app.get('/my-registrations', authMiddleware, async (req, res) => {
   }
 });
 
+// Rota para cancelar inscrição em um evento (protegida)
+app.delete('/events/:eventId/register', authMiddleware, async (req, res) => {
+  const { eventId } = req.params as { eventId: string };
+  const userId = req.userId;
+
+  try {
+    await prisma.registration.delete({
+      where: {
+        userId_eventId: {
+          userId: userId,
+          eventId: eventId,
+        },
+      },
+    });
+
+    return res.status(204).send();
+
+  } catch (error: any) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({ error: 'Inscrição não encontrada para este usuário neste evento.' });
+    }
+
+    console.error(error);
+    return res.status(500).json({ error: 'Erro ao cancelar inscrição.' });
+  }
+});
+
 const PORT = Number(process.env.PORT) || 3333;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 API rodando em http://localhost:${PORT}`);
