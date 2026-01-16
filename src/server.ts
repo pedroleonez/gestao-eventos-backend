@@ -170,6 +170,28 @@ app.get('/events', async (req, res) => {
   }
 });
 
+// Rota para listar eventos em que o usuário está inscrito (protegida)
+app.get('/my-registrations', authMiddleware, async (req, res) => {
+  try {
+    const registrations = await prisma.registration.findMany({
+      where: { userId: req.userId },
+      include: {
+        event: {
+          include: {
+            organizer: { select: { name: true } }
+          }
+        }
+      }
+    });
+
+    const events = registrations.map(reg => reg.event);
+
+    return res.json(events);
+  } catch (error) {
+    return res.status(500).json({ error: 'Erro ao buscar suas inscrições.' });
+  }
+});
+
 const PORT = Number(process.env.PORT) || 3333;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 API rodando em http://localhost:${PORT}`);
