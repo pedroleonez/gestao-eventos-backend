@@ -106,6 +106,50 @@ app.post('/events', authMiddleware, async (req, res) => {
   }
 });
 
+// Rota para inscrição em um evento (protegida)
+app.post('/events/:eventId/register', authMiddleware, async (req, res) => {
+  const { eventId } = req.params as { eventId: string };
+  const userId = req.userId;
+
+  try {
+    // 1. Buscar o evento com a contagem de inscrições
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      include: {
+        _count: {
+          select: { registrations: true }
+        }
+      }
+    });
+    // 2. Verificação de existência do evento
+    if (!event) {
+      return res.status(404).json({ error: 'Evento não encontrado.' });
+    }
+
+    // 3. Verificação de capacidade
+    if (event._count.registrations >= event.capacity) {
+      return res.status(400).json({ error: 'Este evento já atingiu a capacidade máxima.' });
+    }
+
+    // 4. Criar a inscrição
+    const registration = await prisma.registration.create({
+      data: {
+        userId: userId,
+        eventId: eventId,
+      },
+    });
+
+    return res.status(201).json(registration);
+
+  } catch (error: any) {
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: 'Você já está inscrito neste evento.' });
+    }
+    console.error(error);
+    return res.status(500).json({ error: 'Erro ao realizar inscrição.' });
+  }
+});
+
 const PORT = Number(process.env.PORT) || 3333;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 API rodando em http://localhost:${PORT}`);
