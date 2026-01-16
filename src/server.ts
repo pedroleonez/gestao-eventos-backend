@@ -4,10 +4,23 @@ import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from './lib/prisma.js';
+import { authMiddleware } from './middlewares/auth.js';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Rota protegida (Só acessa quem enviar o Token)
+app.get('/me', authMiddleware, async (req, res) => {
+  const user = await prisma.user.findUnique({
+    where: { id: req.userId }
+  });
+
+  if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
+
+  const { password: _, ...userWithoutPassword } = user;
+  return res.json(userWithoutPassword);
+});
 
 // Rota de Cadastro
 app.post('/users', async (req, res) => {
