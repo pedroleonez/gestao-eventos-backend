@@ -150,6 +150,26 @@ app.post('/events/:eventId/register', authMiddleware, async (req, res) => {
   }
 });
 
+// Rota para listar eventos com contagem de inscrições e dados do organizador
+app.get('/events', async (req, res) => {
+  try {
+    const events = await prisma.event.findMany({
+      include: {
+        _count: {
+          select: { registrations: true }
+        },
+        organizer: {
+          select: { name: true, email: true }
+        }
+      }
+    });
+
+    return res.json(events);
+  } catch (error) {
+    return res.status(500).json({ error: 'Erro ao buscar eventos.' });
+  }
+});
+
 const PORT = Number(process.env.PORT) || 3333;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 API rodando em http://localhost:${PORT}`);
