@@ -83,6 +83,29 @@ app.post('/login', async (req, res) => {
   }
 });
 
+// Rota para criar um evento (protegida)
+app.post('/events', authMiddleware, async (req, res) => {
+  const { title, description, date, location, capacity } = req.body;
+
+  try {
+    const event = await prisma.event.create({
+      data: {
+        title,
+        description,
+        date: new Date(date),
+        location,
+        capacity: Number(capacity),
+        organizerId: req.userId,
+      },
+    });
+
+    return res.status(201).json(event);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Erro ao criar evento.' });
+  }
+});
+
 const PORT = Number(process.env.PORT) || 3333;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 API rodando em http://localhost:${PORT}`);
